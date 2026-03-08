@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Paste to Markdown — Adrien Heymans</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root{--cp:#c4a4f7;--cb:#7eb8f7;--cpk:#f7a4d4;--cg:#a4f7c4;--cy:#f7e6a4;--bg:#f0eaff;--tx:#2d2250;--muted:#7a6fa8;--sh:0 8px 32px rgba(120,80,200,.16),0 2px 8px rgba(120,80,200,.08);--shh:0 16px 48px rgba(120,80,200,.26),0 4px 16px rgba(120,80,200,.12);}
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;overflow-x:hidden;}
+  body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;}
+
+  .blobs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.28;animation:bf 12s ease-in-out infinite alternate;}
+  .b1{width:min(500px,130vw);height:min(500px,130vw);background:var(--cp);top:-100px;left:-120px;animation-duration:14s;}
+  .b2{width:min(400px,100vw);height:min(400px,100vw);background:var(--cb);top:40%;right:-80px;animation-duration:11s;animation-delay:2s;}
+  .b3{width:min(350px,90vw);height:min(350px,90vw);background:var(--cpk);bottom:-80px;left:30%;animation-duration:16s;animation-delay:4s;}
+  @keyframes bf{from{transform:translate(0,0) scale(1);}to{transform:translate(24px,32px) scale(1.07);}}
+
+  .wrap{position:relative;z-index:1;width:100%;max-width:780px;display:flex;flex-direction:column;gap:20px;}
+
+  /* HEADER */
+  .header{text-align:center;}
+  .logo-row{display:inline-flex;align-items:center;gap:14px;margin-bottom:10px;}
+  .logo-icon{width:52px;height:52px;border-radius:18px;background:linear-gradient(135deg,var(--cp),var(--cb));display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 18px rgba(120,80,200,.28),inset 0 1px 0 rgba(255,255,255,.4);}
+  .logo-text{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;}
+  .logo-text span{background:linear-gradient(135deg,#9b59b6,#3498db);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .tagline{font-size:14px;color:var(--muted);font-weight:600;}
+
+  /* MAIN CARD */
+  .card{background:rgba(255,255,255,.62);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:28px;box-shadow:var(--sh),inset 0 1px 0 rgba(255,255,255,.8);border:1.5px solid rgba(255,255,255,.75);padding:32px;}
+
+  /* STATUS BAR */
+  .status-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:50px;font-size:12.5px;font-weight:700;background:rgba(255,255,255,.5);border:1.5px solid rgba(255,255,255,.8);color:var(--muted);transition:all .25s;}
+  .status-pill.ready{background:#d4ffea;color:#1a6b3a;border-color:rgba(164,247,196,.5);}
+  .status-pill.pasted{background:#e8d8ff;color:#6b35c4;border-color:rgba(196,164,247,.5);}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.7;}
+  .char-count{font-size:12px;color:var(--muted);font-weight:600;}
+
+  /* TEXTAREA */
+  .ta-wrap{position:relative;}
+  textarea{
+    width:100%;height:460px;border-radius:20px;
+    border:1.5px solid rgba(200,180,240,.35);
+    background:rgba(255,255,255,.55);
+    padding:22px 24px;
+    font-family:'Nunito',sans-serif;font-size:14.5px;line-height:1.85;
+    color:var(--tx);resize:vertical;outline:none;
+    box-shadow:inset 0 2px 10px rgba(120,80,200,.05);
+    transition:border-color .2s,box-shadow .2s;
+    caret-color:#9b59b6;
+  }
+  textarea:focus{border-color:rgba(196,164,247,.65);box-shadow:inset 0 2px 10px rgba(120,80,200,.08),0 0 0 3px rgba(196,164,247,.18);}
+  textarea::placeholder{color:#c0b0e0;font-style:italic;}
+  textarea.converted{background:rgba(232,216,255,.18);border-color:rgba(196,164,247,.5);}
+
+  /* HINT */
+  .hint{text-align:center;font-size:12.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;}
+
+  /* RULES */
+  .rules{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px;}
+  .rule-tag{padding:4px 12px;border-radius:50px;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.5);border:1.5px solid rgba(255,255,255,.8);color:var(--muted);}
+
+  /* FOOTER */
+  .footer{text-align:center;font-size:12.5px;color:var(--muted);font-weight:600;}
+  .footer a{color:#6b35c4;text-decoration:none;font-weight:700;}
+  .footer a:hover{text-decoration:underline;}
+  .hrt{color:#f76a8a;animation:hb 1.4s ease-in-out infinite;display:inline-block;}
+  @keyframes hb{0%,100%{transform:scale(1);}50%{transform:scale(1.3);}}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);z-index:100;padding:12px 26px;border-radius:50px;font-size:13px;font-weight:800;background:rgba(255,255,255,.88);backdrop-filter:blur(18px);box-shadow:var(--sh);border:1.5px solid rgba(255,255,255,.8);color:var(--tx);opacity:0;transition:all .32s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast.ok{background:rgba(212,255,234,.9);border-color:rgba(164,247,196,.6);color:#1a6b3a;}
+
+  /* ENTER ANIM */
+  .fu{opacity:0;transform:translateY(22px);animation:fup .55s ease forwards;}
+  @keyframes fup{to{opacity:1;transform:translateY(0);}}
+  .d1{animation-delay:.06s;}.d2{animation-delay:.14s;}.d3{animation-delay:.22s;}.d4{animation-delay:.30s;}
+
+  @media(max-width:520px){
+    .logo-text{font-size:1.5rem;}
+    .card{padding:22px 16px;}
+    textarea{height:360px;font-size:13.5px;padding:16px 18px;}
+  }
+</style>
+</head>
+<body>
+<div class="blobs">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+</div>
+
+<div class="wrap">
+
+  <div class="header fu">
+    <div class="logo-row">
+      <div class="logo-icon">📝</div>
+      <div class="logo-text">Paste to <span>Markdown</span></div>
+    </div>
+    <div class="tagline">Paste anything — it instantly converts &amp; selects your Markdown</div>
+  </div>
+
+  <div class="card fu d1">
+    <div class="status-bar">
+      <div class="status-pill" id="statusPill">
+        <div class="status-dot"></div>
+        <span id="statusText">Waiting for paste…</span>
+      </div>
+      <div class="char-count" id="charCount"></div>
+    </div>
+
+    <div class="ta-wrap">
+      <textarea id="area" placeholder="Paste here — Ctrl+V / ⌘V&#10;&#10;Works with plain text, rich text copied from Word, Notion, emails, or websites.&#10;Your Markdown will appear instantly, already selected and ready to copy." spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="hint fu d2">
+    <span>💡</span>
+    <span>After converting, just press <kbd style="background:rgba(255,255,255,.7);border:1.5px solid rgba(200,180,240,.4);padding:1px 7px;border-radius:6px;font-family:'Nunito',sans-serif;font-size:12px;">Ctrl+C</kbd> / <kbd style="background:rgba(255,255,255,.7);border:1.5px solid rgba(200,180,240,.4);padding:1px 7px;border-radius:6px;font-family:'Nunito',sans-serif;font-size:12px;">⌘C</kbd> — it's already selected</span>
+  </div>
+
+  <div class="rules fu d3">
+    <span class="rule-tag">H1–H4 headings</span>
+    <span class="rule-tag">**bold** &amp; _italic_</span>
+    <span class="rule-tag">- bullet lists</span>
+    <span class="rule-tag">1. numbered lists</span>
+    <span class="rule-tag">[links](url)</span>
+    <span class="rule-tag">`inline code`</span>
+    <span class="rule-tag">```code blocks```</span>
+    <span class="rule-tag">&gt; blockquotes</span>
+    <span class="rule-tag">tables</span>
+    <span class="rule-tag">--- rules</span>
+  </div>
+
+  <div class="footer fu d4">
+    Built with <span class="hrt">❤️</span> by <a href="https://adrien-heymans.github.io" target="_blank">Adrien Heymans</a> · <a href="https://adrien-heymans.github.io" target="_blank">Portfolio</a>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var area = document.getElementById('area');
+var statusPill = document.getElementById('statusPill');
+var statusText = document.getElementById('statusText');
+var charCount = document.getElementById('charCount');
+
+// ── HTML → MARKDOWN ──
+function nodeToMd(node) {
+  if (node.nodeType === 3) return node.textContent;
+  if (node.nodeType !== 1) return '';
+  var tag = node.tagName ? node.tagName.toLowerCase() : '';
+  if (tag === 'head' || tag === 'script' || tag === 'style') return '';
+  var inner = Array.from(node.childNodes).map(nodeToMd).join('');
+  switch(tag) {
+    case 'h1': return '\n# ' + inner.trim() + '\n\n';
+    case 'h2': return '\n## ' + inner.trim() + '\n\n';
+    case 'h3': return '\n### ' + inner.trim() + '\n\n';
+    case 'h4': return '\n#### ' + inner.trim() + '\n\n';
+    case 'h5': return '\n##### ' + inner.trim() + '\n\n';
+    case 'h6': return '\n###### ' + inner.trim() + '\n\n';
+    case 'strong': case 'b': return inner.trim() ? '**' + inner.trim() + '**' : '';
+    case 'em': case 'i': return inner.trim() ? '_' + inner.trim() + '_' : '';
+    case 'code': return '`' + inner + '`';
+    case 'pre':
+      var codeEl = node.querySelector('code');
+      return '\n```\n' + (codeEl ? codeEl.textContent : node.textContent).trim() + '\n```\n\n';
+    case 'blockquote': return '\n> ' + inner.trim().replace(/\n/g, '\n> ') + '\n\n';
+    case 'a':
+      var href = node.getAttribute('href') || '';
+      return inner.trim() && inner.trim() !== href ? '[' + inner.trim() + '](' + href + ')' : (href ? '<' + href + '>' : inner);
+    case 'img': return '![' + (node.getAttribute('alt') || '') + '](' + (node.getAttribute('src') || '') + ')';
+    case 'br': return '\n';
+    case 'hr': return '\n---\n\n';
+    case 'p': return '\n' + inner.trim() + '\n\n';
+    case 'li': return inner;
+    case 'ul':
+      var items = Array.from(node.children).map(function(li){ return '- ' + nodeToMd(li).trim(); });
+      return '\n' + items.join('\n') + '\n\n';
+    case 'ol':
+      var items2 = Array.from(node.children).map(function(li, i){ return (i+1) + '. ' + nodeToMd(li).trim(); });
+      return '\n' + items2.join('\n') + '\n\n';
+    case 'table': return tableToMd(node);
+    case 'thead': case 'tbody': case 'tr': case 'th': case 'td': return inner;
+    case 'div': case 'section': case 'article': case 'main':
+      return inner.trim() ? '\n' + inner.trim() + '\n' : '';
+    case 'span': return inner;
+    default: return inner;
+  }
+}
+
+function tableToMd(table) {
+  var rows = Array.from(table.querySelectorAll('tr'));
+  if (!rows.length) return '';
+  var result = '\n';
+  rows.forEach(function(row, ri) {
+    var cells = Array.from(row.querySelectorAll('th,td'));
+    result += '| ' + cells.map(function(c){ return c.textContent.trim().replace(/\|/g, '\\|'); }).join(' | ') + ' |\n';
+    if (ri === 0) result += '| ' + cells.map(function(){ return '---'; }).join(' | ') + ' |\n';
+  });
+  return result + '\n';
+}
+
+function htmlToMarkdown(html) {
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  return nodeToMd(div).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// ── PLAIN TEXT → MARKDOWN ──
+function toTitleCase(str) {
+  return str.toLowerCase().replace(/(?:^|\s)\w/g, function(m){ return m.toUpperCase(); });
+}
+
+function plainToMarkdown(text) {
+  var lines = text.split('\n');
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var tr = line.trim();
+    if (!tr) { out.push(''); continue; }
+    // numbered list
+    if (/^\d+[\.\)]\s+/.test(tr)) { out.push(tr.replace(/^(\d+)[\.\)]\s+/, '$1. ')); continue; }
+    // bullet
+    if (/^[-*•▪◦►▸]\s+/.test(tr)) { out.push('- ' + tr.replace(/^[-*•▪◦►▸]\s+/, '')); continue; }
+    // setext h1
+    if (i+1 < lines.length && /^={3,}$/.test(lines[i+1].trim())) { out.push('# ' + tr); i++; continue; }
+    // setext h2
+    if (i+1 < lines.length && /^-{3,}$/.test(lines[i+1].trim()) && lines[i+1].trim().length > 2) { out.push('## ' + tr); i++; continue; }
+    // hr
+    if (/^[-_*]{3,}$/.test(tr)) { out.push('---'); continue; }
+    // blockquote
+    if (/^[>"]/.test(tr) && tr.length > 2) { out.push('> ' + tr.replace(/^[>"]\s*/, '')); continue; }
+    // ALL CAPS = heading
+    if (tr === tr.toUpperCase() && tr.length >= 3 && tr.length < 60 && /[A-Z]{2}/.test(tr) && !/[.!?,;]$/.test(tr)) { out.push('## ' + toTitleCase(tr)); continue; }
+    // short line ending colon = subheading
+    if (tr.endsWith(':') && tr.length < 55 && !tr.includes('.') && !tr.includes(',')) { out.push('### ' + tr.slice(0,-1)); continue; }
+    // inline: urls, emails
+    var p = tr;
+    p = p.replace(/(https?:\/\/[^\s]+)/g, '<$1>');
+    p = p.replace(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g, '<$1>');
+    out.push(p);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// ── SELECT ALL TEXT ──
+function selectAll() {
+  area.focus();
+  area.select();
+}
+
+// ── SET STATUS ──
+function setStatus(state, text, count) {
+  statusText.textContent = text;
+  statusPill.className = 'status-pill ' + (state || '');
+  charCount.textContent = count ? count.toLocaleString() + ' chars' : '';
+}
+
+// ── TOAST ──
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '');
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+// ── MAIN PASTE HANDLER ──
+area.addEventListener('paste', function(e) {
+  e.preventDefault();
+  var html = e.clipboardData && e.clipboardData.getData('text/html');
+  var plain = e.clipboardData && e.clipboardData.getData('text/plain');
+  var md;
+  var source;
+
+  if (html && html.trim().length > 0 && html !== plain) {
+    md = htmlToMarkdown(html);
+    source = 'rich text';
+  } else {
+    md = plainToMarkdown(plain || '');
+    source = 'plain text';
+  }
+
+  if (!md.trim()) {
+    showToast('⚠️ Nothing to convert', '');
+    return;
+  }
+
+  area.value = md;
+  area.classList.add('converted');
+  setStatus('pasted', '✅ Converted from ' + source + ' — all selected, just press Ctrl+C', md.length);
+  selectAll();
+  showToast('✅ Converted! Press Ctrl+C / ⌘C to copy', 'ok');
+});
+
+// ── RESET ON MANUAL EDIT ──
+area.addEventListener('input', function() {
+  area.classList.remove('converted');
+  var len = area.value.length;
+  if (len > 0) {
+    setStatus('', 'Editing…', len);
+  } else {
+    setStatus('', 'Waiting for paste…', 0);
+    charCount.textContent = '';
+  }
+});
+
+// init
+setStatus('', 'Waiting for paste…', 0);
+</script>
+</body>
+</html>
